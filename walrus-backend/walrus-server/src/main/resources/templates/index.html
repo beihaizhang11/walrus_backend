@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walrus - 日程管理系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <style>
+        .schedule-card {
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .schedule-card:hover {
+            transform: translateY(-5px);
+        }
+        .event-item {
+            border-left: 4px solid #007bff;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .modal-header {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Walrus</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" id="showSchedules">日程管理</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <span class="navbar-text me-3" id="userName"></span>
+                    <button class="btn btn-outline-light" id="logoutBtn">退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <div class="container mt-4">
+        <!-- 日程列表 -->
+        <div id="scheduleList">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>我的日程</h2>
+                <button class="btn btn-primary" id="createScheduleBtn">
+                    <i class="fas fa-plus"></i> 创建日程
+                </button>
+            </div>
+            <div class="row" id="scheduleCards"></div>
+        </div>
+
+        <!-- 日程详情 -->
+        <div id="scheduleDetail" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 id="scheduleTitle"></h2>
+                <div>
+                    <button class="btn btn-primary me-2" id="createEventBtn">
+                        <i class="fas fa-plus"></i> 添加事件
+                    </button>
+                    <button class="btn btn-secondary" id="backToList">
+                        <i class="fas fa-arrow-left"></i> 返回
+                    </button>
+                </div>
+            </div>
+            <p id="scheduleDescription" class="text-muted"></p>
+            <div id="eventList" class="mt-4"></div>
+        </div>
+    </div>
+
+    <!-- 日程表单模态框 -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scheduleModalTitle">创建日程</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="scheduleForm">
+                        <input type="hidden" id="scheduleId">
+                        <div class="mb-3">
+                            <label class="form-label">标题</label>
+                            <input type="text" class="form-control" id="scheduleTitleInput" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">描述</label>
+                            <textarea class="form-control" id="scheduleDescInput" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveScheduleBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 事件表单模态框 -->
+    <div class="modal fade" id="eventModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalTitle">创建事件</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="eventForm">
+                        <input type="hidden" id="eventId">
+                        <div class="mb-3">
+                            <label class="form-label">标题</label>
+                            <input type="text" class="form-control" id="eventTitleInput" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">描述</label>
+                            <textarea class="form-control" id="eventDescInput" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">目标日期</label>
+                            <input type="datetime-local" class="form-control" id="eventDateInput" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveEventBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.1/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 全局变量
+        let currentScheduleId = null;
+        const scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+        const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+
+        // 工具函数
+        function formatDate(timestamp) {
+            if (!timestamp) return '未设置';
+            // 确保 timestamp 是数字
+            const ts = Number(timestamp);
+            if (isNaN(ts)) return '无效日期';
+            const date = new Date(ts);
+            if (isNaN(date.getTime())) return '无效日期';
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 工具函数：将日期时间转换为时间戳
+        function dateTimeToTimestamp(dateTimeStr) {
+            if (!dateTimeStr) return null;
+            const date = new Date(dateTimeStr);
+            return isNaN(date.getTime()) ? null : date.getTime();
+        }
+
+        // 工具函数：将时间戳转换为日期时间字符串
+        function timestampToDateTime(timestamp) {
+            if (!timestamp) return '';
+            const ts = Number(timestamp);
+            if (isNaN(ts)) return '';
+            const date = new Date(ts);
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().slice(0, 16);
+        }
+
+        function showError(message) {
+            alert(message); // 可以改为更友好的提示方式
+        }
+
+        // API调用函数
+        const api = {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': localStorage.getItem('token')
+            },
+
+            async getAllSchedules() {
+                const response = await fetch('/api/schedules', {
+                    headers: this.headers
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async getSchedule(id) {
+                const response = await fetch(`/api/schedules/${id}`, {
+                    headers: this.headers
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async createSchedule(data) {
+                const response = await fetch('/api/schedules', {
+                    method: 'POST',
+                    headers: this.headers,
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async updateSchedule(id, data) {
+                const response = await fetch(`/api/schedules/${id}`, {
+                    method: 'PUT',
+                    headers: this.headers,
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async deleteSchedule(id) {
+                const response = await fetch(`/api/schedules/${id}`, {
+                    method: 'DELETE',
+                    headers: this.headers
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return true;
+                }
+                throw new Error(result.message);
+            },
+
+            async getScheduleEvents(scheduleId) {
+                const response = await fetch(`/api/events/schedule/${scheduleId}`, {
+                    headers: this.headers
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async createEvent(data) {
+                const response = await fetch('/api/events', {
+                    method: 'POST',
+                    headers: this.headers,
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async updateEvent(id, data) {
+                const response = await fetch(`/api/events/${id}`, {
+                    method: 'PUT',
+                    headers: this.headers,
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return result.data;
+                }
+                throw new Error(result.message);
+            },
+
+            async deleteEvent(id) {
+                const response = await fetch(`/api/events/${id}`, {
+                    method: 'DELETE',
+                    headers: this.headers
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    return true;
+                }
+                throw new Error(result.message);
+            }
+        };
+
+        // 页面加载完成后执行
+        $(document).ready(function() {
+            // 检查登录状态
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            // 显示用户名
+            const name = localStorage.getItem('name');
+            $('#userName').text('欢迎，' + name);
+
+            // 加载日程列表
+            loadSchedules();
+
+            // 绑定事件处理函数
+            $('#logoutBtn').click(handleLogout);
+            $('#createScheduleBtn').click(() => openScheduleModal());
+            $('#saveScheduleBtn').click(handleSaveSchedule);
+            $('#createEventBtn').click(() => openEventModal());
+            $('#saveEventBtn').click(handleSaveEvent);
+            $('#backToList').click(() => {
+                $('#scheduleDetail').hide();
+                $('#scheduleList').show();
+            });
+        });
+
+        // 加载日程列表
+        async function loadSchedules() {
+            try {
+                const schedules = await api.getAllSchedules();
+                const $container = $('#scheduleCards').empty();
+                
+                schedules.forEach(schedule => {
+                    const card = $(`
+                        <div class="col-md-4 mb-4">
+                            <div class="card schedule-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <h5 class="card-title">${schedule.title}</h5>
+                                        <div class="dropdown">
+                                            <button class="btn btn-link" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item edit-schedule" href="#" data-id="${schedule.id}">
+                                                    <i class="fas fa-edit"></i> 编辑
+                                                </a></li>
+                                                <li><a class="dropdown-item delete-schedule" href="#" data-id="${schedule.id}">
+                                                    <i class="fas fa-trash"></i> 删除
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <p class="card-text">${schedule.description || '暂无描述'}</p>
+                                    <small class="text-muted">创建于 ${formatDate(schedule.createdAt)}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+
+                    // 绑定事件处理函数
+                    card.find('.card-body').click(() => loadScheduleDetail(schedule.id));
+                    card.find('.edit-schedule').click((e) => {
+                        e.stopPropagation();
+                        openScheduleModal(schedule);
+                    });
+                    card.find('.delete-schedule').click((e) => {
+                        e.stopPropagation();
+                        handleDeleteSchedule(schedule.id);
+                    });
+
+                    $container.append(card);
+                });
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // 加载日程详情和事件列表
+        async function loadScheduleDetail(scheduleId) {
+            try {
+                currentScheduleId = scheduleId;
+                const [schedule, events] = await Promise.all([
+                    api.getSchedule(scheduleId),
+                    api.getScheduleEvents(scheduleId)
+                ]);
+
+                $('#scheduleTitle').text(schedule.title);
+                $('#scheduleDescription').text(schedule.description || '暂无描述');
+
+                const $eventList = $('#eventList').empty();
+                events.forEach(event => {
+                    const eventElement = $(`
+                        <div class="event-item">
+                            <div class="d-flex justify-content-between">
+                                <h5>${event.title}</h5>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary edit-event" data-id="${event.id}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-event" data-id="${event.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p>${event.description || '暂无描述'}</p>
+                            <small class="text-muted">目标日期：${formatDate(event.targetDate)}</small>
+                        </div>
+                    `);
+
+                    // 绑定事件处理函数
+                    eventElement.find('.edit-event').click(() => openEventModal(event));
+                    eventElement.find('.delete-event').click(() => handleDeleteEvent(event.id));
+
+                    $eventList.append(eventElement);
+                });
+
+                $('#scheduleList').hide();
+                $('#scheduleDetail').show();
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // 打开日程模态框
+        function openScheduleModal(schedule = null) {
+            $('#scheduleId').val(schedule ? schedule.id : '');
+            $('#scheduleTitleInput').val(schedule ? schedule.title : '');
+            $('#scheduleDescInput').val(schedule ? schedule.description : '');
+            $('#scheduleModalTitle').text(schedule ? '编辑日程' : '创建日程');
+            scheduleModal.show();
+        }
+
+        // 打开事件模态框
+        function openEventModal(event = null) {
+            $('#eventId').val(event ? event.id : '');
+            $('#eventTitleInput').val(event ? event.title : '');
+            $('#eventDescInput').val(event ? event.description : '');
+            $('#eventDateInput').val(event ? timestampToDateTime(event.targetDate) : '');
+            $('#eventModalTitle').text(event ? '编辑事件' : '创建事件');
+            eventModal.show();
+        }
+
+        // 保存日程
+        async function handleSaveSchedule() {
+            try {
+                const id = $('#scheduleId').val();
+                const data = {
+                    title: $('#scheduleTitleInput').val(),
+                    description: $('#scheduleDescInput').val()
+                };
+
+                if (id) {
+                    await api.updateSchedule(id, data);
+                } else {
+                    await api.createSchedule(data);
+                }
+
+                scheduleModal.hide();
+                loadSchedules();
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // 保存事件
+        async function handleSaveEvent() {
+            try {
+                const id = $('#eventId').val();
+                const dateInput = $('#eventDateInput').val();
+                
+                const data = {
+                    scheduleId: currentScheduleId,
+                    title: $('#eventTitleInput').val(),
+                    description: $('#eventDescInput').val(),
+                    targetDate: dateTimeToTimestamp(dateInput)
+                };
+
+                if (id) {
+                    await api.updateEvent(id, data);
+                } else {
+                    await api.createEvent(data);
+                }
+
+                eventModal.hide();
+                loadScheduleDetail(currentScheduleId);
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // 删除日程
+        async function handleDeleteSchedule(id) {
+            if (confirm('确定要删除这个日程吗？')) {
+                try {
+                    await api.deleteSchedule(id);
+                    loadSchedules();
+                } catch (error) {
+                    showError(error.message);
+                }
+            }
+        }
+
+        // 删除事件
+        async function handleDeleteEvent(id) {
+            if (confirm('确定要删除这个事件吗？')) {
+                try {
+                    await api.deleteEvent(id);
+                    loadScheduleDetail(currentScheduleId);
+                } catch (error) {
+                    showError(error.message);
+                }
+            }
+        }
+
+        // 退出登录
+        function handleLogout() {
+            fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': localStorage.getItem('token')
+                }
+            }).finally(() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('username');
+                localStorage.removeItem('name');
+                window.location.href = '/login';
+            });
+        }
+    </script>
+</body>
+</html> 
