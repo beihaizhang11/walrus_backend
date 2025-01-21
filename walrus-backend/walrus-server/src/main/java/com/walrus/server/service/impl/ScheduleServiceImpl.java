@@ -26,6 +26,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         Schedule schedule = new Schedule();
         schedule.setTitle(request.getTitle());
         schedule.setDescription(request.getDescription());
+        schedule.setCreatedBy(createdBy);
+        schedule.setCreatedAt(System.currentTimeMillis());
         return scheduleRepository.save(schedule);
     }
 

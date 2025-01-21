@@ -17,9 +17,9 @@ public class Schedule {
     @Column
     private String description;
 
-    @Column(name = "created_by")
+    @Column(name = "createdBy")
     private String createdBy;
 
-    @Column(name = "created_at")
+    @Column(name = "createdAt")
     private Long createdAt;
 } 
