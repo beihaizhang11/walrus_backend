@@ -2,6 +2,7 @@ package com.walrus.server.service.impl;
 
 import com.walrus.pojo.dto.ScheduleRequest;
 import com.walrus.pojo.entity.Schedule;
+import com.walrus.server.repository.EventRepository;
 import com.walrus.server.repository.ScheduleRepository;
 import com.walrus.server.service.ScheduleService;
 import org.springframework.stereotype.Service;
@@ -12,9 +13,11 @@ import java.util.List;
 @Service
 public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleRepository scheduleRepository;
+    private final EventRepository eventRepository;
 
-    public ScheduleServiceImpl(ScheduleRepository scheduleRepository) {
+    public ScheduleServiceImpl(ScheduleRepository scheduleRepository, EventRepository eventRepository) {
         this.scheduleRepository = scheduleRepository;
+        this.eventRepository = eventRepository;
     }
 
     @Override
@@ -40,6 +43,11 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional
     public void deleteSchedule(Long id) {
+        // 先删除该日程下的所有事件
+        eventRepository.findByScheduleId(id).forEach(event -> 
+            eventRepository.deleteById(event.getId())
+        );
+        // 然后删除日程
         scheduleRepository.deleteById(id);
     }
 

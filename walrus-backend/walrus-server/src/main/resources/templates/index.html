@@ -344,18 +344,13 @@
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between">
                                         <h5 class="card-title">${schedule.title}</h5>
-                                        <div class="dropdown">
-                                            <button class="btn btn-link" data-bs-toggle="dropdown">
-                                                <i class="fas fa-ellipsis-v"></i>
+                                        <div class="schedule-actions" onclick="event.stopPropagation()">
+                                            <button class="btn btn-sm btn-outline-primary edit-schedule" data-id="${schedule.id}">
+                                                <i class="fas fa-edit"></i>
                                             </button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item edit-schedule" href="#" data-id="${schedule.id}">
-                                                    <i class="fas fa-edit"></i> 编辑
-                                                </a></li>
-                                                <li><a class="dropdown-item delete-schedule" href="#" data-id="${schedule.id}">
-                                                    <i class="fas fa-trash"></i> 删除
-                                                </a></li>
-                                            </ul>
+                                            <button class="btn btn-sm btn-outline-danger delete-schedule" data-id="${schedule.id}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
                                     </div>
                                     <p class="card-text">${schedule.description || '暂无描述'}</p>
@@ -366,13 +361,17 @@
                     `);
 
                     // 绑定事件处理函数
-                    card.find('.card-body').click(() => loadScheduleDetail(schedule.id));
-                    card.find('.edit-schedule').click((e) => {
-                        e.stopPropagation();
+                    card.find('.card-body').click(function(e) {
+                        if (!$(e.target).closest('.dropdown').length) {
+                            loadScheduleDetail(schedule.id);
+                        }
+                    });
+                    
+                    card.find('.edit-schedule').click(function() {
                         openScheduleModal(schedule);
                     });
-                    card.find('.delete-schedule').click((e) => {
-                        e.stopPropagation();
+                    
+                    card.find('.delete-schedule').click(function() {
                         handleDeleteSchedule(schedule.id);
                     });
 
