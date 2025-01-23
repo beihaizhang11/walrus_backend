@@ -316,6 +316,23 @@
             const name = localStorage.getItem('name');
             $('#userName').text('欢迎，' + name);
 
+            // 初始化首页状态
+            window.history.replaceState({type: 'list'}, '', '/');
+
+            // 添加历史记录事件监听
+            window.addEventListener('popstate', function(event) {
+                if (event.state) {
+                    if (event.state.type === 'list') {
+                        showScheduleList();
+                    } else if (event.state.type === 'schedule') {
+                        loadScheduleDetail(event.state.id, false); // false表示不添加新的历史记录
+                    }
+                } else {
+                    showScheduleList();
+                }
+            });
+
+
             // 加载日程列表
             loadSchedules();
 
@@ -330,6 +347,15 @@
                 $('#scheduleList').show();
             });
         });
+
+
+        // 添加显示日程列表的函数
+        function showScheduleList() {
+            $('#scheduleDetail').hide();
+            $('#scheduleList').show();
+            currentScheduleId = null;
+            //loadSchedules(); // 可选：重新加载列表以确保数据最新
+        }
 
         // 加载日程列表
         async function loadSchedules() {
@@ -363,7 +389,7 @@
                     // 绑定事件处理函数
                     card.find('.card-body').click(function(e) {
                         if (!$(e.target).closest('.dropdown').length) {
-                            loadScheduleDetail(schedule.id);
+                            loadScheduleDetail(schedule.id, true);
                         }
                     });
                     
@@ -383,13 +409,17 @@
         }
 
         // 加载日程详情和事件列表
-        async function loadScheduleDetail(scheduleId) {
+        async function loadScheduleDetail(scheduleId, addHistory = true) {
             try {
                 currentScheduleId = scheduleId;
                 const [schedule, events] = await Promise.all([
                     api.getSchedule(scheduleId),
                     api.getScheduleEvents(scheduleId)
                 ]);
+
+                if (addHistory) {
+                    window.history.pushState({type: 'schedule', id: scheduleId}, '', `/schedule/${scheduleId}`);
+                }
 
                 $('#scheduleTitle').text(schedule.title);
                 $('#scheduleDescription').text(schedule.description || '暂无描述');
